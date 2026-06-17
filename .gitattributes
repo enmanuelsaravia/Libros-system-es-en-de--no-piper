@@ -11,3 +11,8 @@ scripting/vociferate-pdf.from.de.to.en.and.es--page-by-page.sh linguist-language
 scripting/vociferate-pdf.from.es.to.en.and.de--page-by-page.sh linguist-language=Python
 scripting/vociferate-pdf.from.en.to.es.and.de--page-by-page.sh linguist-language=Python
 scripting/vociferate-pdf.sh linguist-language=Python
+
+# Excluir binarios y carpetas portables del cálculo de lenguajes
+portable-bin-for-gentoo-2026-PATH/** linguist-vendored
+portable-bin-for-rocky-linux-8-PATH/** linguist-vendored
+var/** linguist-vendored
