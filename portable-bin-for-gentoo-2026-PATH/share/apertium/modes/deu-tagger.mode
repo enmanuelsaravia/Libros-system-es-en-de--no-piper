@@ -1,0 +1,1 @@
+lt-proc -w -e '/home/user/Personal/Libros-superacion/portable-bin-for-gentoo-2026-PATH/share/apertium/apertium-deu/deu.automorf.bin' | cg-proc -w '/home/user/Personal/Libros-superacion/portable-bin-for-gentoo-2026-PATH/share/apertium/apertium-deu/deu.rlx.bin'

@@ -1,0 +1,9 @@
+prefix=/home/user/Libros-system-es-en-de--no-piper/portable-bin-for-rocky-linux-8-PATH
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: apertium
+Description: rule-based machine translation system
+Version: 3.9.12
+Libs: -L${libdir} -lapertium

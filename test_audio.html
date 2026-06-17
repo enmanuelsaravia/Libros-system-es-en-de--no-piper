@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<body>
+<button id="global-play-btn">Play</button>
+<script>
+    let activeAudio = null;
+    const globalPlayBtn = document.getElementById('global-play-btn');
+    
+    // 1-second silence base64
+    const src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAQABAA==";
+    
+    globalPlayBtn.addEventListener('click', () => {
+        if (activeAudio) {
+            if (activeAudio.paused) {
+                activeAudio.play();
+                globalPlayBtn.textContent = '||';
+            } else {
+                activeAudio.pause();
+                globalPlayBtn.textContent = '>';
+            }
+        } else {
+            activeAudio = new Audio(src);
+            activeAudio.play();
+            globalPlayBtn.textContent = '||';
+        }
+    });
+</script>
+</body>
+</html>

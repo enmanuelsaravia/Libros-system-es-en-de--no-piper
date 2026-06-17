@@ -1,0 +1,13 @@
+__pycache__/
+thumbnails/
+htm
+htm+audio
+htm/
+htm+audio/
+pdfs
+pdfs/
+pdfs.htm
+personal
+personal/
+scripting/__pycache__/
+portable-bin-for-rocky-linux-8-PATH/lib/libapertium.a

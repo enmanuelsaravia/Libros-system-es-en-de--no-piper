@@ -1,0 +1,10 @@
+prefix=/home/user/Libros-system-es-en-de--no-piper/portable-bin-for-rocky-linux-8-PATH
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib64
+includedir=${prefix}/include
+
+Name: lttoolbox
+Description: Augmented letter transducer tools for natural language processing
+Version: 3.8.2
+Cflags: -I${includedir}
+Libs: -L${libdir} -llttoolbox

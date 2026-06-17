@@ -1,0 +1,5 @@
+prefix=/home/user/Libros-system-es-en-de--no-piper/portable-bin-for-rocky-linux-8-PATH
+
+Name: apertium-anaphora
+Description: Anaphora resolution module for Apertium
+Version: 1.1.1
