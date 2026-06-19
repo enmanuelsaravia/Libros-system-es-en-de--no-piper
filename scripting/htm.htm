@@ -467,6 +467,47 @@
         input:checked + .slider:before {
             transform: translateX(16px);
         }
+
+        .nav-btn-fullscreen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            color: #000000;
+            font-size: 5rem;
+            font-weight: 300;
+            cursor: pointer;
+            user-select: none;
+            z-index: 100001;
+            opacity: 0.15;
+            transition: opacity 0.2s, transform 0.2s;
+            padding: 2rem 1.5rem;
+            outline: none;
+            font-family: monospace;
+        }
+
+        .nav-btn-fullscreen:hover {
+            opacity: 0.7;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .nav-btn-fullscreen:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+
+        #fullscreen-prev-btn {
+            left: 1.5rem;
+        }
+
+        #fullscreen-next-btn {
+            right: 1.5rem;
+        }
+
+        body.txt-manual-mode .nav-btn-fullscreen {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -552,7 +593,9 @@
 
     <!-- Overlay de pantalla completa -->
     <div id="fullscreen-overlay">
+        <button id="fullscreen-prev-btn" class="nav-btn-fullscreen">&lt;</button>
         <div id="fullscreen-text"></div>
+        <button id="fullscreen-next-btn" class="nav-btn-fullscreen">&gt;</button>
         <div class="exit-hint">Haz clic o presiona ESC para salir</div>
     </div>
 
@@ -77150,7 +77193,8 @@ const pdfjsBuild = 'ce8716743';
             pageNumPending = null,
             scale = 1.5,
             canvasContainer = document.getElementById('pdf-viewer'),
-            lastPageNum = null;
+            lastPageNum = null,
+            manualPagePreferLast = false;
 
         function renderPage(num) {
             if (lastPageNum !== null && lastPageNum !== num) {
@@ -77188,6 +77232,9 @@ const pdfjsBuild = 'ce8716743';
             }
             if (document.body.classList.contains('txt-mode')) {
                 speakCurrentPage();
+            } else if (document.body.classList.contains('txt-manual-mode')) {
+                showManualCurrentPage(manualPagePreferLast);
+                manualPagePreferLast = false;
             }
         }
 
@@ -77256,6 +77303,18 @@ const pdfjsBuild = 'ce8716743';
             }
         });
         document.addEventListener('keydown', (e) => {
+            if (document.body.classList.contains('txt-manual-mode')) {
+                if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault();
+                    onNextManualChunk();
+                    return;
+                }
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    onPrevManualChunk();
+                    return;
+                }
+            }
             if (e.key === 'ArrowRight' || e.key === 'PageDown') onNextPage();
             if (e.key === 'ArrowLeft' || e.key === 'PageUp') onPrevPage();
         });
@@ -77357,6 +77416,7 @@ const pdfjsBuild = 'ce8716743';
             const overlay = document.getElementById('fullscreen-overlay');
             if (overlay) overlay.style.display = 'none';
             document.body.classList.remove('txt-mode');
+            document.body.classList.remove('txt-manual-mode');
             const sanoBtnText = document.getElementById('sano-btn-text');
             if (sanoBtnText) {
                 sanoBtnText.textContent = 'o-o';
@@ -77374,6 +77434,128 @@ const pdfjsBuild = 'ce8716743';
                 } else {
                     showHeaderBtn.style.display = 'none';
                 }
+            }
+        }
+
+        function showCurrentManualChunk() {
+            if (!currentChunks || currentChunks.length === 0) {
+                fitText("Página sin texto");
+                return;
+            }
+            if (currentChunkIndex < 0) {
+                currentChunkIndex = 0;
+            }
+            if (currentChunkIndex >= currentChunks.length) {
+                currentChunkIndex = currentChunks.length - 1;
+            }
+            fitText(currentChunks[currentChunkIndex]);
+        }
+
+        function onNextManualChunk() {
+            if (!document.body.classList.contains('txt-manual-mode')) return;
+            if (currentChunkIndex < currentChunks.length - 1) {
+                currentChunkIndex++;
+                showCurrentManualChunk();
+            } else {
+                if (pageNum < pdfDoc.numPages) {
+                    pageNum++;
+                    const pageNumEl = pipWindow ? pipWindow.document.getElementById('page-num') : document.getElementById('page-num');
+                    if (pageNumEl) pageNumEl.value = pageNum;
+                    const showHeaderBtn = document.getElementById('show-header-btn');
+                    if (showHeaderBtn && pdfDoc) {
+                        showHeaderBtn.textContent = '↓ ' + pageNum + '/' + pdfDoc.numPages;
+                    }
+                    queueRenderPage(pageNum);
+                } else {
+                    exitTxtMode();
+                }
+            }
+        }
+
+        function onPrevManualChunk() {
+            if (!document.body.classList.contains('txt-manual-mode')) return;
+            if (currentChunkIndex > 0) {
+                currentChunkIndex--;
+                showCurrentManualChunk();
+            } else {
+                if (pageNum > 1) {
+                    pageNum--;
+                    const pageNumEl = pipWindow ? pipWindow.document.getElementById('page-num') : document.getElementById('page-num');
+                    if (pageNumEl) pageNumEl.value = pageNum;
+                    const showHeaderBtn = document.getElementById('show-header-btn');
+                    if (showHeaderBtn && pdfDoc) {
+                        showHeaderBtn.textContent = '↓ ' + pageNum + '/' + pdfDoc.numPages;
+                    }
+                    manualPagePreferLast = true;
+                    queueRenderPage(pageNum);
+                }
+            }
+        }
+
+        function showManualCurrentPage(preferLastChunk = false) {
+            if (typeof speechSynthesis !== 'undefined') {
+                speechSynthesis.cancel();
+            }
+            isReading = false;
+            if (!pdfDoc) return;
+            
+            const overlay = document.getElementById('fullscreen-overlay');
+            if (overlay) overlay.style.display = 'flex';
+            
+            const onTextReady = (text) => {
+                const chunks = parseChunks(text);
+                currentChunks = chunks;
+                if (preferLastChunk && chunks.length > 0) {
+                    currentChunkIndex = chunks.length - 1;
+                } else {
+                    currentChunkIndex = 0;
+                }
+                showCurrentManualChunk();
+            };
+
+            if (typeof textMap !== 'undefined' && textMap[pageNum]) {
+                let useLang = 'es';
+                if (typeof activeLang !== 'undefined' && activeLang && textMap[pageNum][activeLang]) {
+                    useLang = activeLang;
+                } else if (typeof fallbackChain !== 'undefined' && fallbackChain) {
+                    for (let i = 0; i < fallbackChain.length; i++) {
+                        const l = fallbackChain[i];
+                        if (textMap[pageNum][l] && textMap[pageNum][l].trim()) {
+                            useLang = l;
+                            break;
+                        }
+                    }
+                } else {
+                    let lang = 'es';
+                    const lowerName = (fileName || "").toLowerCase();
+                    if (lowerName.includes('-en-') || lowerName.includes('_en_') || lowerName.includes('.en.')) {
+                        lang = 'en';
+                    } else if (lowerName.includes('-de-') || lowerName.includes('_de_') || lowerName.includes('.de.')) {
+                        lang = 'de';
+                    }
+                    if (textMap[pageNum][lang] && textMap[pageNum][lang].trim()) {
+                        useLang = lang;
+                    } else {
+                        for (const l of ['es', 'en', 'de']) {
+                            if (textMap[pageNum][l] && textMap[pageNum][l].trim()) {
+                                useLang = l;
+                                break;
+                            }
+                        }
+                    }
+                }
+                const pageText = textMap[pageNum][useLang] || "";
+                onTextReady(pageText);
+            } else {
+                pdfDoc.getPage(pageNum).then(page => {
+                    return page.getTextContent();
+                }).then(textContent => {
+                    const text = textContent.items.map(item => item.str).join(' ');
+                    onTextReady(text);
+                }).catch(err => {
+                    console.error("Error reading page text:", err);
+                    fitText("Error al cargar texto");
+                });
             }
         }
 
@@ -77567,15 +77749,39 @@ const pdfjsBuild = 'ce8716743';
                     if (showHeaderBtn) showHeaderBtn.style.display = 'block';
                     
                     speakCurrentPage();
+                } else if (currentVal === 'txt') {
+                    // Transition to txt > (Text/Vociferar - manual)
+                    sanoBtnText.textContent = 'txt >';
+                    document.body.classList.remove('sano-mode');
+                    document.body.classList.remove('txt-mode');
+                    document.body.classList.add('txt-manual-mode');
+                    const overlay = document.getElementById('fullscreen-overlay');
+                    if (overlay) overlay.style.display = 'flex';
+                    
+                    if (showHeaderBtn) showHeaderBtn.style.display = 'block';
+                    
+                    showManualCurrentPage(false);
                 } else {
                     // Transition back to o-o (Lentecitos)
                     sanoBtnText.textContent = 'o-o';
                     document.body.classList.remove('sano-mode');
                     document.body.classList.remove('txt-mode');
+                    document.body.classList.remove('txt-manual-mode');
                     const overlay = document.getElementById('fullscreen-overlay');
                     if (overlay) overlay.style.display = 'none';
                     isReading = false;
                     if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+                    
+                    // Restaurar visualización de showHeaderBtn según visibilidad del header
+                    const headerEl = document.querySelector('header');
+                    const showHeaderBtn = document.getElementById('show-header-btn');
+                    if (headerEl && showHeaderBtn) {
+                        if (headerEl.style.display === 'none') {
+                            showHeaderBtn.style.display = 'block';
+                        } else {
+                            showHeaderBtn.style.display = 'none';
+                        }
+                    }
                 }
             });
         }
@@ -77583,6 +77789,25 @@ const pdfjsBuild = 'ce8716743';
         const fullscreenOverlay = document.getElementById('fullscreen-overlay');
         if (fullscreenOverlay) {
             fullscreenOverlay.addEventListener('click', exitTxtMode);
+        }
+
+        const prevBtn = document.getElementById('fullscreen-prev-btn');
+        if (prevBtn) {
+            prevBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (document.body.classList.contains('txt-manual-mode')) {
+                    onPrevManualChunk();
+                }
+            });
+        }
+        const nextBtn = document.getElementById('fullscreen-next-btn');
+        if (nextBtn) {
+            nextBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (document.body.classList.contains('txt-manual-mode')) {
+                    onNextManualChunk();
+                }
+            });
         }
 
         document.addEventListener('keydown', (e) => {

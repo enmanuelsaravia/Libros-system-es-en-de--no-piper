@@ -249,14 +249,17 @@ echo "📚 Seleccione el modo de generación:"
 echo "[0] Generar .htm normales (rápido, sin audio/texto)"
 echo "[1] Generar ARDUAMENTE con lector de voz nativo del navegador (Traducción a 3 idiomas)"
 echo "[2] Generar ARDUAMENTE con lector de voz nativo para TODOS los libros (Batch automático)"
+echo "[3] Generar ARDUAMENTE para TODOS los libros REEMPLAZANDO el caché (Extracción limpia)"
 echo ""
 
 mode_selection="0"
-read -r -p "Seleccione opción [0/1/2] (Por defecto: 0): " input_selection || true
+read -r -p "Seleccione opción [0/1/2/3] (Por defecto: 0): " input_selection || true
 if [[ "$input_selection" == "1" ]]; then
     mode_selection="1"
 elif [[ "$input_selection" == "2" ]]; then
     mode_selection="2"
+elif [[ "$input_selection" == "3" ]]; then
+    mode_selection="3"
 fi
 
 if [[ "$mode_selection" == "1" ]]; then
@@ -266,11 +269,12 @@ if [[ "$mode_selection" == "1" ]]; then
     fi
     trap 'echo "[ERROR] Falló en la línea $LINENO con código de salida $?"' ERR
     echo ""
-    echo "🔎 Escaneando libros pendientes de conversión..."
+    echo "🔎 Escaneando libros..."
     
     declare -a unconverted_pdfs=()
     declare -a unconverted_names=()
     declare -a unconverted_pages=()
+    declare -a unconverted_statuses=()
     
     temp_unconverted=$(mktemp)
     [ "${DEBUG:-0}" = "1" ] && echo "[DEBUG] temp_unconverted = $temp_unconverted"
@@ -296,23 +300,27 @@ if [[ "$mode_selection" == "1" ]]; then
         if [ "$size_mb" -eq 0 ]; then size_mb=1; fi
         
         htm_audio_file="$HTM_AUDIO_DIR/${clean_book_name}.${size_mb}.htm"
-        if [[ ! -f "$htm_audio_file" ]]; then
-            # Obtener número de páginas
-            pages=$(get_page_count "$pdf")
-            pages=${pages:-0}
-            
-            # Guardar en archivo temporal para ordenar
-            printf '%d|%s|%s\n' "$pages" "$pdf" "$filename" >> "$temp_unconverted"
+        status="[Pendiente]"
+        if [[ -f "$htm_audio_file" ]]; then
+            status="[Convertido]"
         fi
+        
+        # Obtener número de páginas
+        pages=$(get_page_count "$pdf")
+        pages=${pages:-0}
+        
+        # Guardar en archivo temporal para ordenar
+        printf '%d|%s|%s|%s\n' "$pages" "$pdf" "$filename" "$status" >> "$temp_unconverted"
     done < <(find -L "$ABS_DIR" -maxdepth 1 -type f \( -iname "*.pdf" -o -iname "*.PDF" \) -print0)
     
     # Leer ordenando ascendentemente por número de páginas (menor tiempo a más)
     if [[ -f "$temp_unconverted" ]]; then
-        while IFS='|' read -r pages pdf filename; do
+        while IFS='|' read -r pages pdf filename status; do
             if [[ -n "$pdf" ]]; then
                 unconverted_pages+=("$pages")
                 unconverted_pdfs+=("$pdf")
                 unconverted_names+=("$filename")
+                unconverted_statuses+=("$status")
             fi
         done < <(sort -t'|' -k1,1n "$temp_unconverted")
         rm -f "$temp_unconverted"
@@ -321,13 +329,14 @@ if [[ "$mode_selection" == "1" ]]; then
     total_unconverted=${#unconverted_pdfs[@]}
     
     if [[ "$total_unconverted" -eq 0 ]]; then
-        echo "🎉 ¡Todos los libros ya tienen su versión HTML con audio/texto! No hay pendientes."
+        echo "❌ No se encontraron libros PDF en la biblioteca."
         exit 0
     fi
     
-    echo "📚 Libros que aún no han sido convertidos:"
+    echo "📚 Lista de libros en la biblioteca:"
     for (( i=0; i<total_unconverted; i++ )); do
         pages="${unconverted_pages[$i]}"
+        status="${unconverted_statuses[$i]}"
         
         # Calcular tiempo estimado (5 segundos por página para extracción + traducción)
         total_seconds=$(( pages * 5 ))
@@ -349,7 +358,7 @@ if [[ "$mode_selection" == "1" ]]; then
             fi
         fi
         
-        echo "[$i] ${unconverted_names[$i]} - $pages páginas (Tiempo estimado $time_est)"
+        echo "[$i] ${unconverted_names[$i]} - $pages páginas (Tiempo estimado $time_est) $status"
     done
     echo ""
     
@@ -407,7 +416,7 @@ if [[ "$mode_selection" == "1" ]]; then
     echo ""
 fi
 
-if [[ "$mode_selection" == "2" ]]; then
+if [[ "$mode_selection" == "2" || "$mode_selection" == "3" ]]; then
     echo ""
     read -r -p "Desea iterar todos los pdfs? (si/no) [Por defecto: no]: " iterar_confirm || true
     iterar_confirm=$(echo "$iterar_confirm" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
@@ -496,7 +505,11 @@ if [[ "$mode_selection" == "2" ]]; then
         echo "[Batch $((i+1)) / $total_pdfs] Procesando: $pdf_name ($pdf_page_count páginas)"
         echo "----------------------------------------------------"
         
-        "$PY_BIN" "$SCRIPT_DIR/scripting/extract_and_translate.py" "$pdf_path"
+        if [[ "$mode_selection" == "3" ]]; then
+            "$PY_BIN" "$SCRIPT_DIR/scripting/extract_and_translate.py" "$pdf_path" --force
+        else
+            "$PY_BIN" "$SCRIPT_DIR/scripting/extract_and_translate.py" "$pdf_path"
+        fi
         
         mkdir -p "$HTM_AUDIO_DIR"
         pdf_size_mb=$(du -m "$pdf_path" | awk '{print $1}')
@@ -513,8 +526,6 @@ if [[ "$mode_selection" == "2" ]]; then
     echo "===================================================="
     echo ""
 fi
-
-# =========================================================
 # ELIMINAR DUPLICADOS
 # =========================================================
 

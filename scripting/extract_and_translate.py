@@ -176,8 +176,13 @@ def process_page(pdf_path, page, orig_lang, cache_entry):
     return result
 
 def main():
+    force_rebuild = False
+    if "--force" in sys.argv:
+        force_rebuild = True
+        sys.argv.remove("--force")
+
     if len(sys.argv) < 2:
-        print("Uso: python3 extract_and_translate.py <pdf_path>")
+        print("Uso: python3 extract_and_translate.py <pdf_path> [--force]")
         sys.exit(1)
         
     pdf_path = sys.argv[1]
@@ -194,6 +199,13 @@ def main():
     os.makedirs(cache_dir, exist_ok=True)
     cache_path = os.path.join(cache_dir, f"{book_name}.json")
     
+    if force_rebuild and os.path.exists(cache_path):
+        print(f"[!] --force detectado. Eliminando caché de traducción previa: {cache_path}")
+        try:
+            os.remove(cache_path)
+        except Exception as e:
+            print(f"⚠️ Error al eliminar caché: {e}")
+
     cache = {}
     if os.path.exists(cache_path):
         try:
