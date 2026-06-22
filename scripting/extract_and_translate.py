@@ -58,7 +58,7 @@ def get_total_pages(pdf_path):
     return 0
 
 def clean_text_content(content):
-    permitidos = "abcdefghijklmnñopqrstuvwxyzäöüáéíóúßABCDEFGHIJKLMNÑOPQRSTUVWXYZÄÖÜÁÉÍÓÚ!?.,:;ʼ”“()- "
+    permitidos = "0123456789abcdefghijklmnñopqrstuvwxyzäöüáéíóúßABCDEFGHIJKLMNÑOPQRSTUVWXYZÄÖÜÁÉÍÓÚ!?.,:;ʼ”“()- "
     set_permitidos = set(permitidos)
     signos_puntuacion = "!?.,:;ʼ”“()-"
     
